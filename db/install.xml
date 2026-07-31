@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="admin/tool/eqwpdfcheck/db" VERSION="20260713" COMMENT="EqualWeb PDF Accessibility"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="tool_eqwpdfcheck_state" COMMENT="Per-file EqualWeb accessibility state, indexed for server-side listing at scale">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="fileid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="{files}.id of this PDF occurrence"/>
+        <FIELD NAME="contenthash" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="pathnamehash" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="component" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="filearea" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="itemid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="filepath" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="{files}.filepath of this occurrence ('/' at the root); the pluginfile URL 404s without it"/>
+        <FIELD NAME="filename" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="filesize" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="filetimecreated" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Course owning the file's context; 0 = none/system"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Uploader ({files}.userid); informational only, never used for authorization"/>
+        <FIELD NAME="state" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false" COMMENT="checking|checked|remediating|remediated_ready|remediated"/>
+        <FIELD NAME="docid" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="docbackend" TYPE="char" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="EqualWeb account the running check lives in: key|proxy; null = pre-2.6.3 run, poll picks fresh"/>
+        <FIELD NAME="remdocid" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="summary" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="summaryafter" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="report" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="reportafter" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="pages" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="lang" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="hasbackup" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="newfileid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="remediatedat" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="checkedby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User who started the last free check; null = unattributed (pre-2.6.0 event)"/>
+        <FIELD NAME="remediatedby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User who started the last paid remediation; null = unattributed (pre-2.6.0 event)"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="cls_cat" TYPE="char" LENGTH="16" NOTNULL="false" SEQUENCE="false" COMMENT="Admin classification override category (service|public|internal|archive); null = automatic (computed per request, never stored)"/>
+        <FIELD NAME="cls_prio" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Priority for a stored admin category override"/>
+        <FIELD NAME="cls_src" TYPE="char" LENGTH="8" NOTNULL="false" SEQUENCE="false" COMMENT="Source of a stored classification: 'user' (admin tag); automatic results are never persisted"/>
+        <FIELD NAME="cls_rules" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON list of matched-rule strings behind an admin tag (the why)"/>
+        <FIELD NAME="ignored" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 = hidden from the inventory by a logged, reversible admin action (never deleted, never exempted)"/>
+        <FIELD NAME="ignored_by" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Display name of the admin who ignored the row"/>
+        <FIELD NAME="ignored_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="When the row was ignored (unix time)"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="fileid" UNIQUE="true" FIELDS="fileid"/>
+        <INDEX NAME="state" UNIQUE="false" FIELDS="state"/>
+        <INDEX NAME="contenthash" UNIQUE="false" FIELDS="contenthash"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

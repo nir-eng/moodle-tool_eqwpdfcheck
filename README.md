@@ -7,7 +7,8 @@ exactly where your documents stand and what to fix first.
 
 ## Features
 - Automatic discovery of the site's PDF files, checked from one dashboard
-  (Site administration > Reports > EqualWeb PDF Checker).
+  (Site administration > EqualWeb PDF Checker - the plugin adds its own
+  top-level entry, it is not filed under Reports).
 - A 0-100 PDF/UA accessibility score per file, with a detailed issue report.
 - Course-level view for teachers (per-course files and scores).
 - Free checks run against the EqualWeb checking service - no account, no API

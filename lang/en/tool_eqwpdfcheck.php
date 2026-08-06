@@ -25,13 +25,13 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'EqualWeb PDF Checker';
-$string['eqwpdfcheck:manage'] = 'Manage EqualWeb PDF accessibility checks and remediation';
+$string['eqwpdfcheck:manage'] = 'Manage EqualWeb PDF accessibility checks';
 $string['eqwpdfcheck:view'] = 'View PDF accessibility status and reports in a course';
 $string['eqwpdfcheck:check'] = 'Run free PDF accessibility checks (uses the site\'s shared daily quota)';
-$string['privacy:metadata'] = 'The EqualWeb PDF Accessibility tool sends documents to the EqualWeb accessibility service for checking and remediation, and records which user started each check and remediation.';
-$string['privacy:metadata:equalweb:document'] = 'The document file uploaded for accessibility checking or remediation.';
+$string['privacy:metadata'] = 'The EqualWeb PDF Checker sends documents to the EqualWeb accessibility service for checking, and records which user started each check.';
+$string['privacy:metadata:equalweb:document'] = 'The document file uploaded for accessibility checking.';
 $string['privacy:metadata:equalweb:filename'] = 'The file name of the document, sent to the service with its content.';
-$string['privacy:metadata:tool_eqwpdfcheck_state'] = 'Per-document accessibility state, including which users started checks and remediations.';
+$string['privacy:metadata:tool_eqwpdfcheck_state'] = 'Per-document accessibility state, including which users started checks.';
 $string['privacy:metadata:tool_eqwpdfcheck_state:userid'] = 'The user who uploaded the document (taken from the Moodle file record).';
 $string['privacy:metadata:tool_eqwpdfcheck_state:checkedby'] = 'The user who started the most recent free accessibility check.';
 $string['privacy:metadata:tool_eqwpdfcheck_state:remediatedby'] = 'The user who last acted on the file.';
@@ -41,10 +41,7 @@ $string['privacy:metadata:tool_eqwpdfcheck_state:ignored_by'] = 'The name of the
 $string['coursenav'] = 'PDF accessibility';
 $string['coursepagetitle'] = 'PDF Accessibility';
 $string['quotanote'] = 'Free checks share a site-wide daily quota.';
-$string['dupnote'] = 'Same content as {$a} other file(s); remediating this copy does not change them.';
-$string['permheading'] = 'Permissions';
-$string['perminfo'] = 'Who can view, check, remediate and replace PDFs is controlled per course role via the capabilities tool/eqwpdfcheck:view, tool/eqwpdfcheck:check, tool/eqwpdfcheck:remediate and tool/eqwpdfcheck:replace (the site settings on this page remain admin-only). Note: free checks share one site-wide daily quota; granting the check capability broadly consumes it faster.';
-$string['permlink'] = 'Define roles';
+$string['dupnote'] = 'Same content as {$a} other file(s); each copy is checked separately.';
 
 // Task.
 $string['task_discover'] = 'Discover PDF files for accessibility';
@@ -129,7 +126,7 @@ $string['filteraria'] = 'Filter';
 $string['filter_all'] = 'All files';
 $string['filtergroup_status'] = 'Status';
 $string['filter_unchecked'] = 'Not checked';
-$string['filter_checked'] = 'Checked, not remediated';
+$string['filter_checked'] = 'Checked';
 $string['filter_inprogress'] = 'In progress';
 $string['filtergroup_classification'] = 'Classification';
 $string['sortaria'] = 'Sort';
@@ -163,10 +160,8 @@ $string['catflag_internal'] = 'In scope if used';
 $string['catflag_archive'] = 'Possibly exempt — confirm';
 
 // Category panel above the file table.
-$string['taglocationslink'] = 'Tag locations in Compliance → Classification';
 
 // Classification screen: explainer, coverage meter, auto-archive, footnote.
-$string['covhint'] = 'Tag a course once — everything inside inherits. Untagged locations are listed first, biggest first.';
 
 // Classification screen: one location (course) row.
 $string['loc_documents'] = '{$a} document(s)';
@@ -199,11 +194,6 @@ $string['cls_rule_old_many'] = 'Auto rule: uploaded over {$a} years ago (thresho
 $string['cls_rule_active'] = 'In a visible activity in a visible course';
 
 // Analytics tab: KPI tiles, chart titles, axis labels, notes.
-$string['status_none'] = 'Not checked';
-$string['status_checked'] = 'Checked, not remediated';
-$string['status_inprogress'] = 'In progress';
-$string['status_ready'] = 'Ready to apply';
-$string['status_remediated'] = 'Remediated';
 
 // PDF AI Remediation tab (marketing/body copy; inline HTML is intentional).
 $string['badge_new'] = 'New';
@@ -248,19 +238,18 @@ $string['err_statechanged'] = 'The file state changed while uploading. Reload th
 // apply.php
 // check.php
 $string['err_checkpdfonly'] = 'Checking is available for PDF files only.';
-$string['err_checkstate'] = 'This file cannot be checked in its current state. Restore the original first if you want to re-check it.';
+$string['err_checkstate'] = 'This file cannot be checked in its current state. Wait for the check that is running to finish, then reload the page.';
 // poll.php
-$string['err_checkaccountgone'] = 'The EqualWeb account this check started on is no longer available. The file was reset. Run the check again.';
+$string['err_checkaccountgone'] = 'The EqualWeb check service could not be reached for this run. The file was reset. Run the check again.';
 $string['err_noprocess'] = 'No process in progress for this file.';
 $string['err_docgone_check'] = 'The document is no longer on the EqualWeb service. The file was reset. Run the check again.';
 // remediate.php
 // report.php
 $string['err_noreport'] = 'No report stored for this file. Run a check first.';
 // client.php (returned error strings surfaced via err() in the externals)
-$string['err_checkkeygone'] = 'This check is running on your EqualWeb API key, which is no longer configured. Add the key back in the settings tab to see the result.';
-$string['err_checkproxygone'] = 'This check is running on the shared EqualWeb check service, and the site is no longer registered with it. Register the site again in the settings tab to see the result.';
-$string['err_notregistered'] = 'The site is not registered for free checks and no API key is configured. Open the settings tab to register.';
-$string['err_testmode'] = 'EqualWeb accepted the file but did not start processing (the API key account is in TEST MODE). Ask EqualWeb to activate the key and try again.';
+$string['err_checkproxygone'] = 'This check is running on the shared EqualWeb check service, and the site is no longer registered with it. Reload this page to re-register, then run the check again.';
+$string['err_notregistered'] = 'The site is not registered with the EqualWeb free check service yet. Registration runs automatically and needs this site to be reachable from the internet. Reload this page in a few minutes to try again.';
+$string['err_testmode'] = 'EqualWeb accepted the file but did not start processing it. Try again later, or contact EqualWeb if it keeps happening.';
 $string['err_docgone'] = 'Document not found on the EqualWeb service.';
 // client.php upload_file (message follows the machine 'ERR:' prefix, which stays literal).
 $string['err_uploadnotfound'] = 'File not found on disk.';

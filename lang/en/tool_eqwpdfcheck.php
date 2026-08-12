@@ -37,9 +37,10 @@ $string['privacy:metadata:tool_eqwpdfcheck_state:checkedby'] = 'The user who sta
 $string['privacy:metadata:tool_eqwpdfcheck_state:remediatedby'] = 'The user who last acted on the file.';
 $string['privacy:metadata:tool_eqwpdfcheck_state:ignored_by'] = 'The name of the administrator who hid (ignored) the document from the inventory.';
 
+
 // Course page + permissions.
-$string['coursenav'] = 'PDF accessibility';
-$string['coursepagetitle'] = 'PDF Accessibility';
+$string['coursenav'] = 'PDF Checker';
+$string['coursepagetitle'] = 'PDF Checker';
 $string['quotanote'] = 'Free checks share a site-wide daily quota.';
 $string['dupnote'] = 'Same content as {$a} other file(s); each copy is checked separately.';
 
@@ -53,7 +54,8 @@ $string['tab_ai'] = 'PDF AI Remediation';
 $string['tab_start'] = 'Start Auto Remediation';
 $string['tab_settings'] = 'Settings';
 $string['toolslink'] = 'EqualWeb PDF Tools';
-$string['toggletheme'] = 'Toggle theme';
+$string['support'] = 'Support';
+$string['toggletheme'] = 'Toggle dark theme';
 
 // PDF AI Remediation + Start Auto Remediation tab headings (the long body
 // copy for these tabs now lives further down, in the server-rendered UI block).
@@ -78,6 +80,9 @@ $string['js_noissues'] = 'No failed checks. Great!';
 $string['js_before'] = 'Before';
 $string['js_after'] = 'After';
 $string['js_viewreport'] = 'View report';
+$string['js_externallink'] = 'external link';
+$string['js_reportcolstatus'] = 'Status';
+$string['js_reportcolissue'] = 'Issue description';
 $string['js_notchecked'] = 'Not checked';
 $string['js_items'] = 'items';
 
@@ -269,7 +274,7 @@ $string['err_overwritefail'] = 'Could not overwrite the original file.';
 $string['checker_headertitle'] = 'EqualWeb PDF Checker';
 $string['err_freeedition'] = 'Not available in EqualWeb PDF Checker.';
 $string['js_checkedbadge'] = 'Checked';
-$string['js_checklock'] = 'A check is already running. Wait for it to finish.';
+$string['js_checklocktitle'] = 'A check is already running. Wait for it to finish.';
 // Free-edition AI tab: informational copy about the full remediation product
 // (Shopify FreeAiPage parity). NO prices, NO credits, NO purchase CTAs — one
 // plain login.equalweb.com link only. Inline HTML is intentional.

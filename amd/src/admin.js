@@ -46,6 +46,12 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 download: '<svg class="eqw-i" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11"/><path d="M6 10l6 6 6-6"/><path d="M4 20h16"/></svg>'
             };
 
+            // The external icon is decorative (aria-hidden); this visually-hidden
+            // text (Moodle's .accesshide) makes screen readers announce that the
+            // link opens an external site. Emit it immediately BEFORE
+            // ICONS.external on every external link.
+            var EXT_SR = '<span class="accesshide"> (' + (i18n.externalLink || 'external link') + ')</span>';
+
             // Route through Moodle's web-service AJAX (adds sesskey); each function
             // returns {response: "<json>"} carrying the {success, data} envelope.
             function ajax(action, data) {
@@ -72,13 +78,15 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
             }
 
             function scoreCell(score, reportUrl) {
-                if (noScore(score)) {
-                    return '<span class="eqw-empty">—</span>';
-                }
-                var html = scoreBadge(Number(score));
+                // The score and the report link are independent: a remediation can
+                // finish and produce a report at EqualWeb even when the score fetch
+                // failed, so a missing score renders the placeholder but the "View
+                // report" link is still shown whenever a reportUrl is present. (A
+                // score of 0 is a real score, rendered by scoreBadge, never missing.)
+                var html = noScore(score) ? '<span class="eqw-empty">—</span>' : scoreBadge(Number(score));
                 if (reportUrl) {
                     html += ' <a class="eqw-viewlink" href="' + reportUrl + '" target="_blank" rel="noopener" title="' +
-                        i18n.viewReport + '">' + i18n.viewReport + ICONS.external + '</a>';
+                        i18n.viewReport + '">' + i18n.viewReport + EXT_SR + ICONS.external + '</a>';
                 }
                 return html;
             }
@@ -89,12 +97,12 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 var scoreAfter = $row.data('score-after');
                 var url = $row.attr('data-report-url');
                 var urlAfter = $row.attr('data-report-url-after');
-                $row.find('.eqw-before-cell').html(scoreCell(score, score !== '' && score !== undefined ? url : ''));
+                $row.find('.eqw-before-cell').html(scoreCell(score, url));
                 if (!free) {
                     // Free edition has no after-score (nothing remediates): PHP
                     // drops the column header and may drop the <td> too — when
                     // the cell does exist it must simply stay empty.
-                    $row.find('.eqw-after-cell').html(scoreCell(scoreAfter, scoreAfter !== '' && scoreAfter !== undefined ? urlAfter : ''));
+                    $row.find('.eqw-after-cell').html(scoreCell(scoreAfter, urlAfter));
                 }
                 var $status = $row.find('.eqw-status-cell').empty();
                 var $actions = $row.find('.eqw-actions-cell').empty();
@@ -153,7 +161,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                                 $actions.append(
                                     $('<a class="button" target="_blank" rel="noopener"></a>')
                                         .attr('href', $row.attr('data-new-url'))
-                                        .text(i18n.openAccessiblePdf).append(ICONS.external)
+                                        .text(i18n.openAccessiblePdf).append(EXT_SR).append(ICONS.external)
                                 ).append(' ').append(
                                     $('<a class="button"></a>')
                                         .attr('href', $row.attr('data-new-url'))
@@ -240,24 +248,20 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                         if ($row.attr('data-new-url')) {
                             $actions.append(' ').append(
                                 $('<a class="button" target="_blank" rel="noopener"></a>')
-                                    .attr('href', $row.attr('data-new-url')).text(i18n.openCopy).append(ICONS.external));
+                                    .attr('href', $row.attr('data-new-url')).text(i18n.openCopy).append(EXT_SR).append(ICONS.external));
                         }
                         break;
                     default:
                         $status.html('<span class="eqw-badge eqw-plain">' + i18n.notChecked + '</span>');
                         if (can.check) {
-                            var $check = btn('check', i18n.check, true);
-                            // Serial check lock: a freshly rendered row must
-                            // agree with the page-level lock immediately.
-                            if (checkLocked()) {
-                                $check.prop('disabled', true).attr('title', i18n.checkLock);
-                            }
-                            $actions.append($check);
+                            $actions.append(btn('check', i18n.check, true)).append(' ');
                         }
                         if (!free && can.remediate) {
-                            $actions.append(' ').append(btn('remediate', i18n.remediate));
+                            $actions.append(btn('remediate', i18n.remediate));
                         }
                 }
+                // Re-evaluate the serial check lock after every row (re-)render.
+                applyCheckLock();
             }
 
             function setState($row, state, score, hasBackup, scoreAfter) {
@@ -272,10 +276,6 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     $row.data('has-backup', hasBackup ? 1 : 0);
                 }
                 renderRow($row);
-                // Any state change can raise or release the serial check lock
-                // (entering 'checking' via submit, leaving it when polling hits
-                // a terminal state) — keep the other rows' buttons in step.
-                refreshCheckLock();
             }
 
             function updateFileMeta($row, data) {
@@ -388,7 +388,9 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 if (!rows.length) {
                     return '<p>' + i18n.noIssues + '</p>';
                 }
-                var html = '<table class="eqw-report-table"><tbody>';
+                var html = '<table class="eqw-report-table"><thead><tr>' +
+                    '<th scope="col">' + i18n.reportColStatus + '</th>' +
+                    '<th scope="col">' + i18n.reportColIssue + '</th></tr></thead><tbody>';
                 rows.sort(function(a, b) {
                     return ((Number(b.error) || 0) - (Number(a.error) || 0)) ||
                         ((Number(b.severity) || 0) - (Number(a.severity) || 0));
@@ -449,83 +451,69 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
 
             /* -------------------- Serial check lock -------------------- */
 
-            // One manual check at a time ([[backlog-serial-check-lock]], ported
-            // from Shopify v2.9.7). Page-level lock = any row already in the
-            // 'checking' state OR a check submission still in flight — the
-            // counter closes the click race between submit and the server state
-            // catching up. BULK check deliberately bypasses the lock (it is a
-            // multi-send feature), but the rows it flips to 'checking' raise
-            // the lock for the manual per-row buttons all the same.
-            var checksInFlight = 0;
-
-            function checkLocked() {
-                return checksInFlight > 0 || $('.eqw-files tbody tr').filter(function() {
-                    return $(this).attr('data-state') === 'checking';
-                }).length > 0;
+            // SERIAL CHECK LOCK (ported from the canonical WordPress plugin): one
+            // MANUAL check at a time. While a check is submitting or running, every
+            // OTHER row's check button is disabled with a tooltip. The BULK check
+            // button is exempt (deliberate multi-send). Two signals cover the whole
+            // window: rows the server already shows as 'checking', and rows whose
+            // check submission is still in flight (closes the click-race gap before
+            // the row state catches up).
+            var checkSubmitting = {};
+            function anyCheckActive() {
+                return $('.eqw-files tr[data-state="checking"]').length > 0 ||
+                    Object.keys(checkSubmitting).length > 0;
             }
-
-            // Sync every rendered Check button with the lock. renderRow()
-            // consults the lock for the rows it (re)builds; this covers the
-            // already-rendered ones without a full re-render.
-            function toggleCheckButtons(locked) {
-                $('.eqw-files .eqw-actions-cell button[data-action="check"]').each(function() {
-                    var $btn = $(this);
-                    if ($btn.closest('tr').data('busy')) {
-                        // A submission owns this row's buttons right now;
-                        // renderRow restores them when it settles.
-                        return;
-                    }
-                    if (locked) {
-                        $btn.prop('disabled', true).attr('title', i18n.checkLock);
-                    } else {
-                        $btn.prop('disabled', false).removeAttr('title');
-                    }
-                });
-            }
-
-            function refreshCheckLock() {
-                toggleCheckButtons(checkLocked());
+            function applyCheckLock() {
+                var $btns = $('.eqw-files button[data-action="check"]');
+                if (anyCheckActive()) {
+                    // Only mark buttons WE lock (data-checklock), so unlocking never
+                    // re-enables a button disabled for another reason.
+                    $btns.not('[data-checklock]').attr('data-checklock', '1')
+                        .prop('disabled', true).attr('title', i18n.checkLockTitle);
+                } else {
+                    $btns.filter('[data-checklock]').removeAttr('data-checklock')
+                        .prop('disabled', false).removeAttr('title');
+                }
             }
 
             /* -------------------- Actions -------------------- */
 
             function startProcess($row, action) {
                 var state = $row.data('state');
+                // Never restart work in progress, never clobber a finished
+                // remediation waiting for the user's apply decision, and never
+                // re-process an already-remediated file. Matches the server guards.
                 if (state === 'checking' || state === 'remediating' ||
                     state === 'remediated_ready' || state === 'remediated') {
                     return;
                 }
-                // 'busy' marks a row whose buttons a submission disabled so the
-                // lock toggling never re-enables them mid-flight.
-                $row.data('busy', true);
-                $row.find('.eqw-actions-cell button').prop('disabled', true);
+                // Serial check lock: record this manual check as in-flight so a
+                // second one is blocked (and every other row's check button
+                // disabled) until it settles.
+                var rowId = String($row.data('id'));
                 if (action === 'check') {
-                    checksInFlight++;
-                    refreshCheckLock();
+                    checkSubmitting[rowId] = true;
+                    applyCheckLock();
                 }
+                $row.find('.eqw-actions-cell button').prop('disabled', true);
                 ajax(action, {fileid: $row.data('id')})
                     .done(function(res) {
-                        $row.data('busy', false);
                         if (action === 'check') {
-                            checksInFlight--;
+                            delete checkSubmitting[rowId];
                         }
                         if (!res.success) {
-                            renderRow($row);
-                            showError($row, res.data && res.data.message);
-                            refreshCheckLock();
+                            renderRow($row); // Re-enable buttons first (renderRow re-applies the lock)…
+                            showError($row, res.data && res.data.message); // …then keep the error visible.
                             return;
                         }
-                        // setState() re-renders and refreshes the check lock.
                         setState($row, res.data.state);
                     })
                     .fail(function(err) {
-                        $row.data('busy', false);
                         if (action === 'check') {
-                            checksInFlight--;
+                            delete checkSubmitting[rowId];
                         }
                         renderRow($row);
                         showError($row, (err && err.message) ? err.message : i18n.error);
-                        refreshCheckLock();
                     });
             }
 
@@ -544,7 +532,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 }
                 var html = '<h2>' + i18n.needKeyTitle + '</h2><p>' + i18n.needKeyBody + '</p>' +
                     '<p class="eqw-report-links">' +
-                    '<a class="button button-primary" href="' + cfg.signupUrl + '" target="_blank" rel="noopener">' + i18n.buyCredits + ICONS.external + '</a>' +
+                    '<a class="button button-primary" href="' + cfg.signupUrl + '" target="_blank" rel="noopener">' + i18n.buyCredits + EXT_SR + ICONS.external + '</a>' +
                     ' <a class="button" href="' + cfg.settingsUrl + '">' + i18n.openSettings + '</a>';
                 openModal(html + '</p>');
             }
@@ -837,13 +825,6 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 var id = $row.data('id');
                 var action = $btn.data('action');
 
-                // Serial check lock — the primary defense (the disabled
-                // attribute is only cosmetic): while any check is running, a
-                // manual check on any OTHER row is ignored. Bulk dispatch calls
-                // startProcess() directly and bypasses this on purpose.
-                if (action === 'check' && checkLocked() && $row.attr('data-state') !== 'checking') {
-                    return;
-                }
                 if (action === 'remediate' && !cfg.hasApiKey) {
                     openNeedKeyModal();
                     return;
@@ -856,6 +837,13 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     return;
                 }
                 if (action === 'check' || action === 'remediate') {
+                    // Serial check lock: block a manual check that races in before
+                    // the other rows' buttons were disabled. This row's own running
+                    // check is caught by startProcess's state guard; bulk sends
+                    // bypass this handler entirely.
+                    if (action === 'check' && anyCheckActive() && $row.data('state') !== 'checking') {
+                        return;
+                    }
                     startProcess($row, action);
                     return;
                 }
@@ -921,11 +909,11 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                                 var ua = $row.attr('data-report-url-after');
                                 if (u) {
                                     links += '<a class="button eqw-viewbtn" href="' + u + '" target="_blank" rel="noopener">' +
-                                        i18n.viewReport + ' (' + i18n.before + ')' + ICONS.external + '</a> ';
+                                        i18n.viewReport + ' (' + i18n.before + ')' + EXT_SR + ICONS.external + '</a> ';
                                 }
                                 if (ua) {
                                     links += '<a class="button eqw-viewbtn" href="' + ua + '" target="_blank" rel="noopener">' +
-                                        i18n.viewReport + ' (' + i18n.after + ')' + ICONS.external + '</a>';
+                                        i18n.viewReport + ' (' + i18n.after + ')' + EXT_SR + ICONS.external + '</a>';
                                 }
                                 openModal(reportHtml(res.data.report, res.data.report_after) +
                                     clsStrip($row) +

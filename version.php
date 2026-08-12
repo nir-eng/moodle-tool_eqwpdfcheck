@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tool_eqwpdfcheck';
-$plugin->version   = 2026080601;      // YYYYMMDDXX.
+$plugin->version   = 2026080604;      // YYYYMMDDXX.
 $plugin->requires  = 2024100700;      // Moodle 4.5.
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.1';
+$plugin->release   = '1.0.4';

@@ -276,10 +276,15 @@ class page_renderer {
             }
         }
         if (!$isfree) {
-            // No marketing links in the checker — the theme toggle stays.
+            // No marketing links in the checker — the theme toggle stays. The
+            // external icon is decorative (aria-hidden); the .accesshide span
+            // tells screen readers each link opens an external website.
             $h .= '<a href="https://www.equalweb.com/platform/pdf_tools/" target="_blank" rel="noopener"'
                 . ' class="eqw-tools-link button">' . get_string('toolslink', 'tool_eqwpdfcheck')
-                . self::icon('external') . '</a>';
+                . '<span class="accesshide"> (external website)</span>' . self::icon('external') . '</a>';
+            $h .= '<a href="https://www.equalweb.com/platform/pdf_tools/support.html" target="_blank" rel="noopener"'
+                . ' class="eqw-tools-link button">' . get_string('support', 'tool_eqwpdfcheck')
+                . '<span class="accesshide"> (external website)</span>' . self::icon('external') . '</a>';
         }
         $h .= '<button type="button" class="button eqw-theme-toggle" id="eqw-theme-toggle" aria-pressed="false">'
             . self::icon('moon') . get_string('toggletheme', 'tool_eqwpdfcheck') . '</button>';
@@ -351,6 +356,8 @@ class page_renderer {
             'failed' => 'failed', 'warnings' => 'warnings', 'score' => 'score', 'reportTitle' => 'reporttitle',
             'noIssues' => 'noissues', 'before' => 'before', 'after' => 'after',
             'removeKeyConfirm' => 'removekeyconfirm', 'viewReport' => 'viewreport',
+            'externalLink' => 'externallink', 'reportColStatus' => 'reportcolstatus',
+            'reportColIssue' => 'reportcolissue',
             'notChecked' => 'notchecked', 'notRemediated' => 'notremediated', 'accessible' => 'accessible',
             'ready' => 'ready', 'items' => 'items', 'selected' => 'selected', 'openCopy' => 'opencopy',
             'needKeyBodyNoAdmin' => 'needkeybodynoadmin', 'inProgress' => 'inprogress',
@@ -370,7 +377,7 @@ class page_renderer {
             'clsAutoDone' => 'cls_autodone', 'clsLocTagged' => 'cls_loctagged', 'clsLocCleared' => 'cls_loccleared',
             'clsYearsSaved' => 'cls_yearssaved',
             // Free-edition badge + the serial check lock (all editions).
-            'checkedBadge' => 'checkedbadge', 'checkLock' => 'checklock',
+            'checkedBadge' => 'checkedbadge', 'checkLockTitle' => 'checklocktitle',
         ];
         if (edition::is_free()) {
             // The free checker build STRIPS every js_* lang string outside this
@@ -386,13 +393,16 @@ class page_renderer {
                 // a full->free edition switch and capability-less viewers on
                 // the course page (the static in-progress badge).
                 'checking', 'remediating', 'inProgress', 'error', 'check',
-                'notChecked', 'checkedBadge', 'checkLock',
+                'notChecked', 'checkedBadge', 'checkLockTitle',
                 // Score cell + external report links (scoreBadge/scoreCell).
-                'score', 'viewReport',
+                // externalLink is the visually-hidden "(external link)" text on
+                // every external link, including the free score-cell report link.
+                'score', 'viewReport', 'externalLink',
                 // Report modal — it renders in free (only the classification
-                // strip clsStrip() is empty), so all its strings stay.
+                // strip clsStrip() is empty), so all its strings stay. The
+                // issues table header uses reportColStatus/reportColIssue.
                 'reportTitle', 'passed', 'failed', 'warnings', 'noIssues',
-                'before', 'after',
+                'before', 'after', 'reportColStatus', 'reportColIssue',
                 // List pagination counter.
                 'items',
             ];

@@ -17,14 +17,10 @@
 namespace tool_eqwpdfcheck\local;
 
 /**
- * The two-edition seam (mirrors the Shopify app's EQW_EDITION split).
+ * Edition marker for this plugin.
  *
- * 'full' is the canonical paid product (this tree, unchanged behavior).
- * 'free' is the "EqualWeb PDF Checker" build: checker only - no remediation,
- * no classification, no key storage, no purchase surfaces. The free plugin
- * tree is GENERATED from this canonical source by deploy/build_moodle_checker.py,
- * which renames the component and flips the EDITION constant below to 'free'.
- * Never hand-edit the generated tree.
+ * This build is the EqualWeb PDF Checker: accessibility checking and scoring
+ * only - no remediation, no classification and no stored API key.
  *
  * @package    tool_eqwpdfcheck
  * @copyright  2026 EqualWeb

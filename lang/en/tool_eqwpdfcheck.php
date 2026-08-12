@@ -269,8 +269,7 @@ $string['err_overwritefail'] = 'Could not overwrite the original file.';
 // AJAX success messages (user-facing toasts) placed into the JSON {success:true}
 // envelope - plain strings, no escaping.
 
-// Two-edition split (2026-07-31): the free "EqualWeb PDF Checker" build + the
-// serial check lock (all editions).
+// Checker badge + the serial check lock.
 $string['checker_headertitle'] = 'EqualWeb PDF Checker';
 $string['err_freeedition'] = 'Not available in EqualWeb PDF Checker.';
 $string['js_checkedbadge'] = 'Checked';

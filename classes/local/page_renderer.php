@@ -380,12 +380,7 @@ class page_renderer {
             'checkedBadge' => 'checkedbadge', 'checkLockTitle' => 'checklocktitle',
         ];
         if (edition::is_free()) {
-            // The free checker build STRIPS every js_* lang string outside this
-            // whitelist (all purchase/remediation language included), so the
-            // free map may only name keys whose lang strings the free tree
-            // keeps — and every key the free JS reads must be here (a missing
-            // key renders as 'undefined'). get_string() never runs for the
-            // rest, so a stripped string can never be requested.
+            // The language strings this edition's JavaScript reads.
             $freekeys = [
                 // Checker row states, the Check button and the serial check
                 // lock (renderRow free branches + toggleCheckButtons).

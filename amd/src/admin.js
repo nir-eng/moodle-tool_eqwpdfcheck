@@ -451,7 +451,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
 
             /* -------------------- Serial check lock -------------------- */
 
-            // SERIAL CHECK LOCK (ported from the canonical WordPress plugin): one
+            // SERIAL CHECK LOCK: one
             // MANUAL check at a time. While a check is submitting or running, every
             // OTHER row's check button is disabled with a tooltip. The BULK check
             // button is exempt (deliberate multi-send). Two signals cover the whole

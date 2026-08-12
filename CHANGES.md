@@ -1,5 +1,8 @@
 # Changes
 
+## 1.0.5 (2026-08-06)
+- Tidied internal developer comments out of the shipped code. No functional change.
+
 ## 1.0.4 (2026-08-06)
 - Removed the unused "throttle" cache definition. It rate-limited the paid
   remediation endpoint, which this checker does not ship, so the definition was

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version details for the EqualWeb PDF plugin (full + generated checker editions).
+ * Version details for the EqualWeb PDF Checker plugin.
  *
  * @package    tool_eqwpdfcheck
  * @copyright  2026 EqualWeb
@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tool_eqwpdfcheck';
-$plugin->version   = 2026080604;      // YYYYMMDDXX.
+$plugin->version   = 2026080605;      // YYYYMMDDXX.
 $plugin->requires  = 2024100700;      // Moodle 4.5.
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.4';
+$plugin->release   = '1.0.5';

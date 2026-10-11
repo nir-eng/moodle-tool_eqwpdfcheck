@@ -1165,20 +1165,57 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     window.location.reload();
                 });
             });
-            $('#eqw-register').on('click', function() {
-                var $btn = $(this).prop('disabled', true);
-                ajax('register_site', {}).done(function(res) {
-                    if (res.success) {
-                        window.location.reload();
+            /* -------------------- Free-check registration -------------------- */
+
+            // Both editions. PHP renders the notice, and the server answers every
+            // attempt with the re-rendered notice body, so all wording comes from
+            // the server (the generic error label aside). The click handler is
+            // delegated because each answer replaces the body and its button.
+            var registering = false;
+            function register(trigger) {
+                if (registering) {
+                    return;
+                }
+                registering = true;
+                var $box = $('#eqw-regnotice');
+                $box.attr('aria-busy', 'true');
+                $box.find('#eqw-register').prop('disabled', true);
+                $box.find('.eqw-regnotice-error').prop('hidden', true).text('');
+                $box.find('.eqw-regnotice-busy').prop('hidden', false);
+                ajax('register_site', {trigger: trigger}).done(function(res) {
+                    var data = (res && res.data) || {};
+                    if (typeof data.html === 'string' && data.html !== '') {
+                        $box.find('.eqw-regnotice-body').replaceWith($.parseHTML(data.html));
                     } else {
-                        $btn.prop('disabled', false);
-                        window.alert(res.data && res.data.message || i18n.error);
+                        $box.find('#eqw-register').prop('disabled', false);
+                        $box.find('.eqw-regnotice-busy').prop('hidden', true);
                     }
-                }).fail(function() {
-                    $btn.prop('disabled', false);
-                    window.alert(i18n.error);
+                    $box.find('.eqw-regnotice-live').text(data.message || '');
+                }).fail(function(err) {
+                    var msg = i18n.error + ((err && err.message) ? ': ' + err.message : '');
+                    $box.find('#eqw-register').prop('disabled', false);
+                    $box.find('.eqw-regnotice-busy').prop('hidden', true);
+                    $box.find('.eqw-regnotice-error').text(msg).prop('hidden', false);
+                    $box.find('.eqw-regnotice-live').text(msg);
+                }).always(function() {
+                    registering = false;
+                    $box.removeAttr('aria-busy');
+                    if (trigger === 'button') {
+                        // Focus follows the result, so keyboard and screen reader
+                        // users land on what changed.
+                        $box.find('#eqw-regnotice-title').trigger('focus');
+                    }
                 });
+            }
+            $(document).on('click', '#eqw-register', function() {
+                register('button');
             });
+            // Automatic registration runs after the page has rendered, never
+            // blocking it; the server decides when it is due (retry policy).
+            if (cfg.regAuto) {
+                register('page');
+            }
+
             if ($('#eqw-balance').length) {
                 ajax('get_balance', {}).done(function(res) {
                     $('#eqw-balance').text(res.success ? res.data.balance : (res.data && res.data.message || '—'));

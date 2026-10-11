@@ -69,6 +69,15 @@ function tool_eqwpdfcheck_pluginfile($course, $cm, $context, $filearea, $args, $
 }
 
 /**
+ * Free-check registration health in Site administration > Reports > System status.
+ *
+ * @return \core\check\check[]
+ */
+function tool_eqwpdfcheck_status_checks(): array {
+    return [new \tool_eqwpdfcheck\check\freechecks()];
+}
+
+/**
  * Add "PDF accessibility" to the course navigation (More menu / secondary
  * navigation) for users who can view the course's PDF accessibility page.
  *

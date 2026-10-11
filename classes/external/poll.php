@@ -86,9 +86,13 @@ class poll extends base {
             // instead of failing forever: 'checking' is a busy state, so a row
             // left in it can never be re-checked and would be wedged with no
             // way out. A check is free, so re-running it costs nothing.
+            // A run on the shared check service stops because this site is no
+            // longer registered there: say that, in the words for the user's role.
             if ($mode === 'check' && (pdfstore::get_row($fileid)->state ?? '') === 'checking') {
                 pdfstore::forget($fileid, ['state', 'docid', 'docbackend']);
-                return self::err(get_string('err_checkaccountgone', 'tool_eqwpdfcheck'));
+                return self::err(($rec->docbackend ?? '') === 'key'
+                    ? get_string('err_checkaccountgone', 'tool_eqwpdfcheck')
+                    : client::not_registered_message());
             }
             return self::err($client);
         }

@@ -1993,3 +1993,81 @@
 
 /* RTL: physical left/right used throughout by design; UI is English-only and
    RTL host mirroring is out of scope. */
+
+/* Free-check registration notice (both editions). Every state has its own
+   heading text, so the border colour is never the only signal. */
+.eqw-regnotice-body {
+	margin: 0 0 14px;
+	padding: 12px 16px;
+	border: 1px solid var(--eqw-line);
+	border-left-width: 5px;
+	border-radius: 6px;
+	background: var(--eqw-surface);
+	color: var(--eqw-ink);
+	font-size: 13px;
+}
+
+.eqw-regnotice-body.eqw-regnotice-bad {
+	border-left-color: var(--eqw-bad-ink);
+	background: var(--eqw-bad-bg);
+}
+
+.eqw-regnotice-body.eqw-regnotice-pending {
+	border-left-color: var(--eqw-warn-ink);
+}
+
+.eqw-regnotice-body.eqw-regnotice-ok {
+	border-left-color: var(--eqw-ok-ink);
+}
+
+.eqw-wrap .eqw-regnotice-body h2 {
+	margin: 0 0 6px;
+	font-size: 15px;
+}
+
+.eqw-regnotice-body p {
+	margin: 0 0 8px;
+}
+
+.eqw-regnotice-body code {
+	word-break: break-all;
+}
+
+.eqw-regnotice-body a {
+	color: var(--eqw-green-dark);
+	font-weight: 600;
+}
+
+/* The busy line and the error line toggle the hidden attribute: no display
+   rule may override it. */
+.eqw-regnotice [hidden] {
+	display: none !important;
+}
+
+.eqw-regdetails summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.eqw-regdetails pre {
+	max-height: 18em;
+	margin: 6px 0 0;
+	padding: 8px 10px;
+	overflow: auto;
+	border: 1px solid var(--eqw-line);
+	border-radius: 4px;
+	background: var(--eqw-surface);
+	color: var(--eqw-ink);
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+/* Course page: the one-line registration note. */
+.eqw-regnotice-line {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-left: 4px solid var(--eqw-warn-ink);
+	background: var(--eqw-surface);
+	color: var(--eqw-ink);
+}

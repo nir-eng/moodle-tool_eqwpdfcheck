@@ -135,6 +135,13 @@ class page_renderer {
         if ($courseid === null && !empty($caps['manage'])) {
             $html .= self::update_banner();
         }
+        // Free-check registration status, in both editions and whatever the
+        // caps say: the checker has no Settings tab, so this is the only place
+        // its admins learn why checks are not available. The Settings tab
+        // renders the full status itself.
+        if ($tab !== 'settings') {
+            $html .= self::registration_notice($courseid, $caps, $haskey);
+        }
         if ($tab === 'settings') {
             $html .= self::settings_tab();
         } else if ($tab === 'analytics') {
@@ -223,6 +230,132 @@ class page_renderer {
                 (object) ['version' => $cached['version'], 'current' => $current]
             ))
             . $link . '</div>';
+    }
+
+    /**
+     * The free-check registration notice above the page content, while this
+     * site is not registered.
+     *
+     * The admin page gets the full notice: why, what to do, the exact address to
+     * allow, Try again, the support link and the technical details. On a course
+     * page an admin gets a pointer to it, and anyone else who can run checks
+     * gets one line with nothing to act on. When checks run on a personal key
+     * instead, the page stays quiet and the Settings tab carries the status.
+     *
+     * @param int|null $courseid Course scope, or null for the admin page.
+     * @param array $caps Capability flags of the current user.
+     * @param bool $haskey Whether a personal key is configured.
+     * @return string
+     */
+    protected static function registration_notice(?int $courseid, array $caps, bool $haskey): string {
+        if ((!edition::is_free() && $haskey) || registration::state()['registered']) {
+            return '';
+        }
+        if ($courseid === null) {
+            return self::registration_box();
+        }
+        if (empty($caps['check'])) {
+            return '';
+        }
+        if (has_capability('tool/eqwpdfcheck:manage', \context_system::instance())) {
+            $url = (new \moodle_url('/admin/tool/eqwpdfcheck/index.php'))->out(false);
+            return '<p class="eqw-regnotice-line">' . self::e(get_string('reg_course_admin', 'tool_eqwpdfcheck'))
+                . ' <a href="' . self::e($url) . '">' . self::e(get_string('reg_course_adminlink', 'tool_eqwpdfcheck'))
+                . '</a></p>';
+        }
+        return '<p class="eqw-regnotice-line">' . self::e(get_string('reg_row_user', 'tool_eqwpdfcheck')) . '</p>';
+    }
+
+    /**
+     * The registration status box: a stable region whose body Try again
+     * replaces in place, plus a polite live region that announces the result.
+     *
+     * @return string
+     */
+    protected static function registration_box(): string {
+        return '<section id="eqw-regnotice" class="eqw-regnotice" aria-labelledby="eqw-regnotice-title">'
+            . self::registration_notice_body()
+            . '<p class="eqw-regnotice-live accesshide" role="status" aria-live="polite" aria-atomic="true"></p>'
+            . '</section>';
+    }
+
+    /**
+     * The body of the registration status box for this site's current state.
+     *
+     * The register_site web service returns it too, so Try again updates the
+     * box without a reload. Meaning never rests on colour: every state has its
+     * own heading text.
+     *
+     * @return string
+     */
+    public static function registration_notice_body(): string {
+        $state = registration::state();
+        if ($state['registered']) {
+            return '<div class="eqw-regnotice-body eqw-regnotice-ok">'
+                . self::registration_title(get_string('reg_title_ok', 'tool_eqwpdfcheck'))
+                . '<p><span aria-hidden="true">&#10003;</span> ' . self::e(get_string('reg_ok', 'tool_eqwpdfcheck')) . '</p>'
+                . '</div>';
+        }
+        $f = $state['failure'];
+        // After a move, or on a copy of another site, the registration on record
+        // belongs to the old address: say so, or a site that used to work just
+        // looks broken.
+        $moved = $state['movedfrom'] === null ? ''
+            : '<p>' . self::e(get_string('reg_moved', 'tool_eqwpdfcheck', $state['movedfrom'])) . '</p>';
+        $h = '<div class="eqw-regnotice-body ' . ($f === null ? 'eqw-regnotice-pending' : 'eqw-regnotice-bad') . '">';
+        if ($f === null) {
+            $h .= self::registration_title(get_string('reg_title_pending', 'tool_eqwpdfcheck')) . $moved
+                . '<p>' . self::e(get_string('reg_pending', 'tool_eqwpdfcheck')) . '</p>';
+        } else {
+            $h .= self::registration_title(get_string('reg_title_failed', 'tool_eqwpdfcheck')) . $moved
+                . '<p>' . self::e(registration::why($f)) . '</p>'
+                . '<p><strong>' . self::e(get_string('reg_whattodo', 'tool_eqwpdfcheck')) . '</strong> '
+                . self::e(registration::todo($f)) . '</p>';
+            if (registration::names_verify_url($f['code'])) {
+                $h .= '<p>' . self::e(get_string('reg_verifyaddress', 'tool_eqwpdfcheck'))
+                    . ' <code>' . self::e(registration::verify_url()) . '</code></p>';
+            } else if ($f['code'] === 'outbound_blocked') {
+                $h .= '<p>' . self::e(get_string('reg_serviceaddress', 'tool_eqwpdfcheck'))
+                    . ' <code>' . self::e(registration::service_host()) . '</code></p>';
+            }
+            // A refused token is no registration attempt, and its what-to-do line
+            // already says to click Try again.
+            if ($f['code'] !== 'token_invalid') {
+                $next = registration::next_auto_at($f);
+                $h .= '<p class="description">'
+                    . self::e(get_string('reg_lastattempt', 'tool_eqwpdfcheck', $f['at'] ? userdate((int) $f['at']) : '-'))
+                    . ' ' . self::e($next === null
+                        ? get_string('reg_retry_manual', 'tool_eqwpdfcheck')
+                        : get_string('reg_retry_auto', 'tool_eqwpdfcheck', userdate(max($next, time()))))
+                    . '</p>';
+            }
+        }
+        $h .= '<p class="eqw-regnotice-actions">'
+            . '<button type="button" class="button button-primary" id="eqw-register">'
+            . self::e(get_string('reg_tryagain', 'tool_eqwpdfcheck')) . '</button>'
+            . ' <span class="eqw-regnotice-busy" hidden><span class="eqw-spin" aria-hidden="true"></span>'
+            . self::e(get_string('reg_busy', 'tool_eqwpdfcheck')) . '</span></p>'
+            . '<p class="eqw-msg-error eqw-regnotice-error" hidden></p>';
+        if ($f !== null) {
+            $h .= '<p><a href="' . self::e(registration::SUPPORT_URL) . '" target="_blank" rel="noopener">'
+                . self::e(get_string('reg_support', 'tool_eqwpdfcheck'))
+                . '<span class="accesshide"> (' . self::e(get_string('reg_newtab', 'tool_eqwpdfcheck')) . ')</span>'
+                . self::icon('external') . '</a></p>'
+                . '<details class="eqw-regdetails"><summary>' . self::e(get_string('reg_details', 'tool_eqwpdfcheck'))
+                . '</summary><p class="description">' . self::e(get_string('reg_details_help', 'tool_eqwpdfcheck')) . '</p>'
+                . '<pre tabindex="0">' . self::e(registration::details($f)) . '</pre></details>';
+        }
+        return $h . '</div>';
+    }
+
+    /**
+     * The heading of the registration box. Try again moves focus to it.
+     *
+     * @param string $text
+     * @return string
+     */
+    protected static function registration_title(string $text): string {
+        return '<h2 class="eqw-regnotice-title" id="eqw-regnotice-title" tabindex="-1">' . self::e($text) . '</h2>';
     }
 
     /**

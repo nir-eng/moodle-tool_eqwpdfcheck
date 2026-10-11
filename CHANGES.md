@@ -1,5 +1,30 @@
 # Changes
 
+## 1.1.0 (2026-10-07)
+- The plugin page now explains why free checks are not set up yet. When the
+  EqualWeb service cannot register the site, a notice at the top of the page
+  names the reason (for example a firewall, a redirect to a sign-in page, a
+  certificate problem or a site that is not reachable from the internet), says
+  what to change, shows the exact address to allow, and offers a Try again
+  button, a link to EqualWeb support and copyable technical details. Teachers
+  on course pages get a one-line note instead. Messages saved by earlier
+  versions are explained the same way after the upgrade.
+- Registration runs after the page has loaded instead of delaying it, one
+  attempt at a time, with a 10 second connection timeout. Automatic attempts
+  back off (10 minutes, then 1 hour, 6 hours and 24 hours); a reason that needs
+  a person to change something waits for Try again.
+- Registration health appears in Site administration > Reports > System status.
+- Registration tells the EqualWeb service which plugin and Moodle versions made
+  the attempt and what started it, so failures can be diagnosed there as well.
+- A check that reaches the daily limit, or finds the registration no longer
+  valid, now shows a plain explanation instead of the service's raw message.
+  A registration the service no longer accepts shows in the notice, with Try
+  again.
+- A site that moved to a new address, or a copy of another site, registers
+  again at its own address instead of reporting that free checks are set up.
+- Error messages and technical details no longer include the proxy password
+  from the Moodle HTTP proxy settings.
+
 ## 1.0.5 (2026-08-06)
 - Tidied internal developer comments out of the shipped code. No functional change.
 

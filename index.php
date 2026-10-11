@@ -29,6 +29,7 @@ use tool_eqwpdfcheck\local\client;
 use tool_eqwpdfcheck\local\discovery;
 use tool_eqwpdfcheck\local\edition;
 use tool_eqwpdfcheck\local\page_renderer;
+use tool_eqwpdfcheck\local\registration;
 
 admin_externalpage_setup('tool_eqwpdfcheck');
 $context = context_system::instance();
@@ -42,15 +43,6 @@ $alltabs = edition::is_free()
     : ['files', 'analytics', 'classification', 'ai', 'start', 'settings', 'permissions'];
 if (!in_array($tab, $alltabs, true)) {
     $tab = 'files';
-}
-
-// Self-healing registration (activation-style), throttled to every 10 minutes.
-if (!get_config('tool_eqwpdfcheck', 'sitetoken')) {
-    $attempted = (int) get_config('tool_eqwpdfcheck', 'regattempted');
-    if ($attempted < time() - 600) {
-        set_config('regattempted', time(), 'tool_eqwpdfcheck');
-        client::register_site();
-    }
 }
 
 // Refresh the indexed PDF list (throttled) before any tab that reads it.
@@ -79,6 +71,9 @@ $jsconfig = [
     'can' => edition::is_free()
         ? ['check' => true, 'remediate' => false, 'replace' => false, 'manage' => false]
         : ['check' => true, 'remediate' => true, 'replace' => true, 'manage' => true],
+    // Free-check registration runs from the page script once the page has
+    // rendered, never holding it up; auto_due() applies the retry policy.
+    'regAuto' => registration::auto_due(),
 ];
 
 $PAGE->requires->js_call_amd('tool_eqwpdfcheck/admin', 'init', [$jsconfig]);

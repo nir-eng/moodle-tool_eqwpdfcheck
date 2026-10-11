@@ -173,12 +173,13 @@ abstract class base extends external_api {
     }
 
     /**
-     * Error envelope: {success: false, data: {message}} as the JSON response string.
+     * Error envelope: {success: false, data: {message, ...extra}} as the JSON response string.
      *
      * @param string $message
+     * @param array $extra More data for the caller (never overrides message).
      * @return array
      */
-    protected static function err(string $message): array {
-        return ['response' => json_encode(['success' => false, 'data' => ['message' => $message]])];
+    protected static function err(string $message, array $extra = []): array {
+        return ['response' => json_encode(['success' => false, 'data' => ['message' => $message] + $extra])];
     }
 }

@@ -129,7 +129,8 @@ class client {
      *   one: picking freshly would send it to the other account after the admin
      *   saves or removes a key mid-flight, and the run would look vanished.
      *   null = pick fresh (key first), which is what starting a new check does.
-     * @return static|string Client, or an error message.
+     * @return static|string Client, or an error message. On the shared Worker the
+     *   message is always not_registered_message().
      */
     public static function for_check(?string $backend = null) {
         $key = self::get_personal_key();
@@ -143,29 +144,39 @@ class client {
             return new static(self::API_BASE, ['x-a11y-api-key' => $key], 'key');
         }
 
-        $token = get_config('tool_eqwpdfcheck', 'sitetoken');
-
-        // Token is bound to the host it was issued for; re-register when the
-        // site moves (throttled so a failing proxy does not fire every check).
-        $registered = get_config('tool_eqwpdfcheck', 'sitehost');
-        $current = self::current_host();
-        $throttle = (int) get_config('tool_eqwpdfcheck', 'reregthrottle');
-        if ($token && $registered && $registered !== $current && $throttle < time() - 600) {
-            set_config('reregthrottle', time(), 'tool_eqwpdfcheck');
-            self::register_site();
-            $token = get_config('tool_eqwpdfcheck', 'sitetoken');
+        // A token is bound to the host it was issued for. When the site moved (or
+        // is a copy of another site), register this address again, on the same
+        // schedule as the automatic attempts from the admin page, so a failing
+        // registration does not hold up every check.
+        if (registration::moved_from() !== null && registration::auto_due()) {
+            self::register_site('host_change');
         }
 
-        if ($token) {
+        // Only a token issued for this host is a registration here: the service
+        // refuses one issued for the previous address, so every check would fail
+        // with a misleading reason. Without one, say what is missing - also to a
+        // running check's poll, in the words for the user's role.
+        $token = (string) get_config('tool_eqwpdfcheck', 'sitetoken');
+        if ($token !== '' && registration::moved_from() === null) {
             return new static(self::worker_url() . '/check', [
                 'x-eqw-site-token' => $token,
-                'x-eqw-site-host' => $current,
+                'x-eqw-site-host' => self::current_host(),
             ], 'proxy');
         }
-        if ($backend === 'proxy') {
-            return get_string('err_checkproxygone', 'tool_eqwpdfcheck');
-        }
-        return get_string('err_notregistered', 'tool_eqwpdfcheck');
+        return self::not_registered_message();
+    }
+
+    /**
+     * The row message when free checks cannot run because the site is not
+     * registered: admins are pointed at the notice on the page, everyone else
+     * gets one line with nothing to act on.
+     *
+     * @return string
+     */
+    public static function not_registered_message(): string {
+        return has_capability('tool/eqwpdfcheck:manage', \context_system::instance())
+            ? get_string('reg_row_admin', 'tool_eqwpdfcheck')
+            : get_string('reg_row_user', 'tool_eqwpdfcheck');
     }
 
     /**
@@ -315,12 +326,17 @@ class client {
                 'http_errors' => false,
             ]);
         } catch (\Throwable $e) {
-            return 'ERR:' . $e->getMessage();
+            return 'ERR:' . self::scrub($e->getMessage());
         }
         $body = json_decode((string) $res->getBody(), true);
         if ($res->getStatusCode() >= 300 || empty($body['id'])) {
+            $refusal = $this->proxy_refusal($res->getStatusCode(), $body);
+            if ($refusal !== null) {
+                return 'ERR:' . $refusal;
+            }
             return 'ERR:' . ($body['error'] ?? ('Upload failed (HTTP ' . $res->getStatusCode() . ').'));
         }
+        $this->proxy_accepted();
         return $body['id'];
     }
 
@@ -418,7 +434,7 @@ class client {
             ]);
         } catch (\Throwable $e) {
             @unlink($dest);
-            return $e->getMessage();
+            return self::scrub($e->getMessage());
         }
         if ($res->getStatusCode() !== 200) {
             @unlink($dest);
@@ -458,48 +474,196 @@ class client {
     /**
      * Register this site with the check proxy (domain ownership handshake).
      *
-     * @return true|string
+     * The request always goes out, so the service sees every attempt, unless
+     * Moodle itself provably refuses it. The classified outcome is stored for
+     * the registration notice (registration::record()).
+     *
+     * @param string $trigger What started it: 'page' (automatically, after the
+     *   admin page loaded), 'button' (Try again) or 'host_change' (the site moved).
+     * @return true|string true, or why it failed (plain text).
      */
-    public static function register_site() {
+    public static function register_site(string $trigger = 'page') {
+        global $CFG;
+        // One registration at a time: two would overwrite each other's nonce and
+        // fail with a code that wrongly blames the site.
+        $lock = \core\lock\lock_config::get_lock_factory('tool_eqwpdfcheck')->get_lock('register', 0);
+        if (!$lock) {
+            return get_string('reg_busy_other', 'tool_eqwpdfcheck');
+        }
+        try {
+            // Stamped here, not by the callers, so a failed Try again is not
+            // followed by an automatic attempt on the next page load.
+            set_config('regattempted', time(), 'tool_eqwpdfcheck');
+            $workerurl = self::worker_url() . '/register';
+            $context = [
+                'trigger' => $trigger,
+                'plugin' => self::plugin_release(),
+                'platform' => registration::moodle_version(),
+                'verify_url' => registration::verify_url(),
+                'site_url' => (string) $CFG->wwwroot,
+                'worker_version' => null,
+            ];
+
+            $refused = self::outbound_refused($workerurl);
+            $outcome = $refused !== null
+                ? registration::classify(0, '', [], $refused)
+                : self::post_registration($workerurl, $trigger, $context);
+            registration::record($outcome, $context);
+            return $outcome['ok'] ? true : registration::why($outcome);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Send the registration request and classify the answer.
+     *
+     * @param string $workerurl The service's /register address.
+     * @param string $trigger What started the registration.
+     * @param array $context The attempt's details; worker_version is filled in.
+     * @return array The outcome, from registration::classify().
+     */
+    protected static function post_registration(string $workerurl, string $trigger, array &$context): array {
         global $CFG;
         $nonce = bin2hex(random_bytes(16));
         set_config('regnonce', $nonce, 'tool_eqwpdfcheck');
         set_config('regnonceexpires', time() + 300, 'tool_eqwpdfcheck');
-
-        $siteurl = $CFG->wwwroot;
-        $verifyurl = $CFG->wwwroot . '/admin/tool/eqwpdfcheck/verify.php';
-
+        // The service fetches verify.php while this request waits; PHP on
+        // Windows counts that wall-clock time against the execution limit.
+        \core_php_time_limit::raise(60);
+        $headers = [];
+        $transport = [];
         try {
-            $res = (new \core\http_client(['timeout' => 30]))->request('POST', self::worker_url() . '/register', [
+            $http = new \core\http_client(['timeout' => 30, 'connect_timeout' => 10]);
+            $res = $http->request('POST', $workerurl, [
                 'json' => [
-                    'site_url' => $siteurl,
-                    'verify_url' => $verifyurl,
+                    'site_url' => $context['site_url'],
+                    'verify_url' => $context['verify_url'],
                     'nonce' => $nonce,
                     'platform' => self::platform(),
+                    'edition' => edition::is_free() ? 'moodle-checker' : 'moodle-paid',
+                    'plugin_version' => $context['plugin'],
+                    'platform_version' => $context['platform'],
+                    'trigger' => $trigger,
                 ],
                 'http_errors' => false,
             ]);
-            $body = json_decode((string) $res->getBody(), true);
-            $code = $res->getStatusCode();
-            $err = null;
+            $status = $res->getStatusCode();
+            $rawbody = (string) $res->getBody();
+            foreach ($res->getHeaders() as $name => $values) {
+                $headers[strtolower($name)] = (string) reset($values);
+            }
+            $context['worker_version'] = $headers['x-eqw-worker-version'] ?? null;
         } catch (\Throwable $e) {
-            $body = null;
-            $code = 0;
-            $err = $e->getMessage();
+            $status = 0;
+            $rawbody = '';
+            // The message is stored and shown in the technical details that admins
+            // send to support, so the proxy password must not be in it.
+            $transport = ['message' => self::scrub($e->getMessage()), 'proxy' => !empty($CFG->proxyhost)];
+            $handler = method_exists($e, 'getHandlerContext') ? $e->getHandlerContext() : [];
+            if (isset($handler['errno'])) {
+                $transport['errno'] = (int) $handler['errno'];
+            }
+        } finally {
+            unset_config('regnonce', 'tool_eqwpdfcheck');
+            unset_config('regnonceexpires', 'tool_eqwpdfcheck');
         }
-        unset_config('regnonce', 'tool_eqwpdfcheck');
-        unset_config('regnonceexpires', 'tool_eqwpdfcheck');
+        return registration::classify($status, $rawbody, $headers, $transport);
+    }
 
-        if ($code !== 200 || empty($body['site_token'])) {
-            $msg = $body['error'] ?? ($err ?? ('HTTP ' . $code));
-            set_config('regerror', $msg, 'tool_eqwpdfcheck');
-            return $msg;
+    /**
+     * Transport details when Moodle itself refuses requests to the service
+     * (its cURL security settings), so the request provably cannot go out.
+     *
+     * Moodle also refuses an address it cannot resolve; a DNS lookup tells that
+     * apart from an address the settings block.
+     *
+     * @param string $url
+     * @return array|null For registration::classify() (sub 'policy' or 'dns'),
+     *   or null when the request may go out.
+     */
+    protected static function outbound_refused(string $url): ?array {
+        $helper = new \core\files\curl_security_helper();
+        if (!$helper->url_is_blocked($url)) {
+            return null;
         }
-        set_config('sitetoken', $body['site_token'], 'tool_eqwpdfcheck');
-        set_config('sitehost', self::current_host(), 'tool_eqwpdfcheck');
-        unset_config('regerror', 'tool_eqwpdfcheck');
-        unset_config('reregthrottle', 'tool_eqwpdfcheck');
-        return true;
+        $host = (string) parse_url($url, PHP_URL_HOST);
+        $resolves = $host !== '' && gethostbynamel($host) !== false;
+        return ['sub' => $resolves ? 'policy' : 'dns', 'message' => $helper->get_blocked_url_string()];
+    }
+
+    /**
+     * This plugin's release string, for example 2.9.0.
+     *
+     * @return string
+     */
+    protected static function plugin_release(): string {
+        try {
+            return (string) (\core_plugin_manager::instance()->get_plugin_info('tool_eqwpdfcheck')->release ?? '');
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
+    /**
+     * The explanation of a check-time refusal from the free-check service (the
+     * registration is no longer valid, or the daily limit is used up), or null
+     * for any other answer.
+     *
+     * The token is never cleared. A refused token is recorded instead
+     * (registration::note_rejection()), so the notice and System status show the
+     * registration as no longer valid, with Try again.
+     *
+     * @param int $status HTTP status.
+     * @param mixed $body Decoded JSON body.
+     * @return string|null
+     */
+    protected function proxy_refusal(int $status, $body): ?string {
+        if ($this->backend !== 'proxy') {
+            return null;
+        }
+        $refusal = registration::check_code($status, is_array($body) ? $body : null);
+        if ($refusal === null) {
+            return null;
+        }
+        if ($refusal['code'] !== 'token_invalid') {
+            return registration::why($refusal) . ' ' . registration::todo($refusal);
+        }
+        registration::note_rejection((string) ($this->headers['x-eqw-site-token'] ?? ''));
+        // Only admins can act on an invalid registration; everyone else gets one
+        // line. Admins are sent to the notice, which shows from the next page load.
+        if (!has_capability('tool/eqwpdfcheck:manage', \context_system::instance())) {
+            return get_string('reg_row_user', 'tool_eqwpdfcheck');
+        }
+        return registration::why($refusal) . ' ' . get_string('reg_row_reload', 'tool_eqwpdfcheck');
+    }
+
+    /**
+     * Note a successful answer from the free-check service: it accepted this
+     * site's token, which ends any earlier refusal on record.
+     */
+    protected function proxy_accepted(): void {
+        if ($this->backend === 'proxy') {
+            registration::note_acceptance((string) ($this->headers['x-eqw-site-token'] ?? ''));
+        }
+    }
+
+    /**
+     * A transport error message without Moodle's proxy credentials (see
+     * registration::redact_proxy()). Every message an exception carries goes
+     * through here before it is stored or shown, since rows show it to teachers
+     * and admins send the registration details to support.
+     *
+     * @param string $message
+     * @return string
+     */
+    public static function scrub(string $message): string {
+        global $CFG;
+        return registration::redact_proxy(
+            $message,
+            (string) ($CFG->proxyuser ?? ''),
+            (string) ($CFG->proxypassword ?? '')
+        );
     }
 
     /**
@@ -679,13 +843,18 @@ class client {
         try {
             $res = (new \core\http_client(['timeout' => 60]))->request($method, $this->base . $path, $options);
         } catch (\Throwable $e) {
-            return $e->getMessage();
+            return self::scrub($e->getMessage());
         }
         $code = $res->getStatusCode();
         $body = json_decode((string) $res->getBody(), true);
         if ($code < 200 || $code >= 300) {
+            $refusal = $this->proxy_refusal($code, $body);
+            if ($refusal !== null) {
+                return $refusal;
+            }
             return is_array($body) && isset($body['error']) ? $body['error'] : ('EqualWeb API error (HTTP ' . $code . ').');
         }
+        $this->proxy_accepted();
         return is_array($body) ? $body : [];
     }
 }
